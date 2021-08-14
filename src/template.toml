@@ -1,0 +1,17 @@
+[config]
+compiler = "clang"
+compiler_opts = ["-Wall"]
+linker = "clang"
+linker_opts = []
+packer = "ar"
+packer_opts = []
+bin = "bin/"
+obj = "obj/"
+
+[[project]]
+name = "project_name"
+kind = "executable"
+src = ["src/"]
+include = ["include/"]
+links = ["dl"]
+defines = []

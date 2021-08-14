@@ -1,0 +1,15 @@
+[package]
+edition = "2018"
+name = "buldr"
+version = "0.1.0"
+
+[dependencies]
+indicatif = "0.16.2"
+serde = "1.0.126"
+serde_derive = "1.0.126"
+serde_json = "1.0.66"
+termion = "1.5.6"
+toml = "0.5.8"
+walkdir = "2.3.2"
+clap = "2.33.3"
+solvent = "0.8.2"
