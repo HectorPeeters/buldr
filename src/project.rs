@@ -7,7 +7,6 @@ use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
-use std::time::SystemTime;
 use termion::color;
 use walkdir::DirEntry;
 use walkdir::WalkDir;
@@ -208,15 +207,8 @@ impl Project {
         let source_files_to_recompile: Vec<_> = source_files
             .iter()
             .filter(|x| {
-                let time = x
-                    .metadata()
-                    .unwrap()
-                    .modified()
-                    .unwrap()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs();
-                cache.has_changed(&self.get_output_file(x.path(), config), time)
+                let time = x.metadata().unwrap().modified().unwrap();
+                cache.has_changed(&self.get_output_file(x.path(), config), &time)
             })
             .collect();
 
