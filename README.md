@@ -58,6 +58,7 @@ cargo install --path .
 - Platform specific compilation or platform define flags
 - Code actions (e.g. format, ...)
 - Recompilation on header file change
+- Parallel compilation where possible
 
 ## Full Example
 
