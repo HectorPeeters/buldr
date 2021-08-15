@@ -83,16 +83,10 @@ impl Project {
             .map(|source| {
                 let output_file = self.get_output_file(source.path(), config);
 
-                let mut command = CompileCommand::new(
-                    std::env::current_dir().unwrap(),
-                    &config.compiler,
-                    std::fs::canonicalize(source.path())
-                        .unwrap()
-                        .to_str()
-                        .unwrap(),
-                    source,
-                );
+                let mut command =
+                    CompileCommand::new(std::env::current_dir().unwrap(), &config.compiler, source);
 
+                // Add the primary compile commands arguments
                 command.push_args(&[
                     "-c",
                     source.path().to_str().unwrap(),
@@ -100,22 +94,29 @@ impl Project {
                     output_file.to_str().unwrap(),
                 ]);
 
+                // Add the include arguments
                 if let Some(include_dirs) = &self.include {
-                    for include_dir in include_dirs {
-                        command.push_arg(&format!("-I{}", include_dir));
-                    }
+                    command.push_args(
+                        &include_dirs
+                            .iter()
+                            .map(|x| format!("-I{}", x))
+                            .collect::<Vec<_>>()[..],
+                    );
                 }
 
+                // Add the defines
                 if let Some(defines) = &self.defines {
-                    for define in defines {
-                        command.push_arg(&format!("-D{}", define));
-                    }
+                    command.push_args(
+                        &defines
+                            .iter()
+                            .map(|x| format!("-D{}", x))
+                            .collect::<Vec<_>>()[..],
+                    );
                 }
 
+                // Add any remaining user-specified args
                 if let Some(args) = &config.compiler_opts {
-                    for arg in args {
-                        command.push_arg(arg);
-                    }
+                    command.push_args(args);
                 }
 
                 command
