@@ -14,6 +14,8 @@ mod compile_command;
 mod config;
 mod project;
 
+const COMPILE_COMMANDS_PATH: &'static str = "compile_commands.json";
+
 fn create_directories(config: &BuildConfig) -> Result<(), std::io::Error> {
     // Create the bin directory
     std::fs::create_dir_all(&config.config.bin)?;
@@ -119,6 +121,10 @@ fn clean(build_file_path: &PathBuf) -> Result<(), std::io::Error> {
         std::fs::remove_dir_all(config.config.obj)?;
     }
 
+    if PathBuf::from(COMPILE_COMMANDS_PATH).exists() {
+        std::fs::remove_file(COMPILE_COMMANDS_PATH)?;
+    }
+
     Ok(())
 }
 
@@ -138,7 +144,7 @@ fn compile_commands() -> Result<(), std::io::Error> {
 
     // Write the result to compile_commands.json
     std::fs::write(
-        Path::new("compile_commands.json"),
+        Path::new(COMPILE_COMMANDS_PATH),
         serde_json::to_string(&all_compile_commands).unwrap(),
     )
 }
