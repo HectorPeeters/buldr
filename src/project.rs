@@ -199,7 +199,12 @@ impl Project {
         Ok(())
     }
 
-    pub fn build(&self, cache: &mut Cache, config: &Config) -> Result<(), std::io::Error> {
+    pub fn build(
+        &self,
+        force_link: bool,
+        cache: &mut Cache,
+        config: &Config,
+    ) -> Result<bool, std::io::Error> {
         // Gathering source files
         let source_files = self.get_source_files();
 
@@ -212,9 +217,12 @@ impl Project {
             })
             .collect();
 
-        // If there is nothing to compile we don't show progress bars or link
+        // If there is nothing to do return
         if source_files_to_recompile.is_empty() {
-            return Ok(());
+            if force_link {
+                self.link(source_files, config)?;
+            }
+            return Ok(force_link);
         }
 
         // Set up the progress bar
@@ -271,6 +279,7 @@ impl Project {
         progress_bar.finish_with_message("done");
 
         // Link all compiled object files
-        self.link(source_files, config)
+        self.link(source_files, config)?;
+        Ok(true)
     }
 }

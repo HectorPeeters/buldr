@@ -4,7 +4,6 @@ use crate::project::Project;
 use cache::Cache;
 use clap::ArgMatches;
 use clap::{App, Arg, SubCommand};
-use solvent::DepGraph;
 use std::fs::File;
 use std::path::Path;
 use std::path::PathBuf;
@@ -14,7 +13,7 @@ mod compile_command;
 mod config;
 mod project;
 
-const COMPILE_COMMANDS_PATH: &'static str = "compile_commands.json";
+const COMPILE_COMMANDS_PATH: &str = "compile_commands.json";
 
 fn create_directories(config: &BuildConfig) -> Result<(), std::io::Error> {
     // Create the bin directory
@@ -26,41 +25,25 @@ fn create_directories(config: &BuildConfig) -> Result<(), std::io::Error> {
     Ok(())
 }
 
-fn get_dependencies<'a>(projects: &'a [Project], name: &str) -> Vec<&'a Project> {
-    let mut depgraph: DepGraph<&str> = DepGraph::new();
+fn get_dependencies<'a>(projects: &'a [Project], project: &Project) -> Vec<&'a Project> {
+    match &project.depends {
+        Some(dependency_names) => {
+            let mut dependencies: Vec<&'a Project> = vec![];
 
-    // Register the final node
-    depgraph.register_node(name);
-
-    // For each project, register its dependencies
-    for project in projects {
-        match &project.depends {
-            Some(x) => {
-                for dep in x {
-                    depgraph.register_dependency(&project.name, dep);
+            for project_name in dependency_names {
+                match projects.iter().find(|x| &x.name == project_name) {
+                    Some(x) => dependencies.push(x),
+                    None => {
+                        eprintln!("No dependency found with name '{}'", project_name);
+                        std::process::exit(1);
+                    }
                 }
             }
-            None => {}
+
+            dependencies
         }
+        None => vec![],
     }
-
-    // Get all the names of the dependencies
-    let dependency_names = depgraph.dependencies_of(&name).unwrap();
-
-    // Convert this list of names to a list of projects
-    let mut dependencies: Vec<&'a Project> = vec![];
-    for project_name in dependency_names {
-        let project_name = project_name.unwrap();
-        match projects.iter().find(|x| &x.name == project_name) {
-            Some(x) => dependencies.push(x),
-            None => {
-                eprintln!("No dependency found with name '{}'", project_name);
-                std::process::exit(1);
-            }
-        }
-    }
-
-    dependencies
 }
 
 fn build_project_with_dependencies(
@@ -68,17 +51,19 @@ fn build_project_with_dependencies(
     all_projects: &[Project],
     config: &Config,
     cache: &mut Cache,
-) -> Result<(), std::io::Error> {
+) -> Result<bool, std::io::Error> {
     // Get all the dependencies
-    let dependencies = get_dependencies(all_projects, &project.name);
+    let dependencies = get_dependencies(all_projects, project);
+
+    let mut needs_rebuild = false;
 
     // Compile them in the correct order
     for dependency in dependencies {
-        dependency.build(cache, config)?;
+        needs_rebuild |= build_project_with_dependencies(dependency, all_projects, config, cache)?;
     }
 
-    // Finally buld the resulting project
-    project.build(cache, config)
+    // Finally build the resulting project
+    project.build(needs_rebuild, cache, config)
 }
 
 fn load_config() -> Result<BuildConfig, std::io::Error> {
@@ -87,7 +72,7 @@ fn load_config() -> Result<BuildConfig, std::io::Error> {
     )?)?)
 }
 
-fn create(build_file_path: &PathBuf) -> Result<(), std::io::Error> {
+fn create(build_file_path: &Path) -> Result<(), std::io::Error> {
     // If there is already a build.toml file, don't overwrite it!
     if build_file_path.exists() {
         println!("build.toml already exists");
@@ -102,7 +87,7 @@ fn create(build_file_path: &PathBuf) -> Result<(), std::io::Error> {
     std::fs::write(&build_file_path, template)
 }
 
-fn clean(build_file_path: &PathBuf) -> Result<(), std::io::Error> {
+fn clean(build_file_path: &Path) -> Result<(), std::io::Error> {
     // If the build file exists, clear the cache
     if build_file_path.exists() {
         Cache::new()?.clean();
@@ -149,7 +134,7 @@ fn compile_commands() -> Result<(), std::io::Error> {
     )
 }
 
-fn build(build_file_path: &PathBuf, matches: &ArgMatches) -> Result<(), std::io::Error> {
+fn build(build_file_path: &Path, matches: &ArgMatches) -> Result<(), std::io::Error> {
     // Make sure the build file exists
     if !build_file_path.exists() {
         eprintln!("No build.toml file found!");
@@ -190,7 +175,8 @@ fn build(build_file_path: &PathBuf, matches: &ArgMatches) -> Result<(), std::io:
     };
 
     // Build that project and its dependencies
-    build_project_with_dependencies(project, &config.projects, &config.config, &mut cache)
+    build_project_with_dependencies(project, &config.projects, &config.config, &mut cache)?;
+    Ok(())
 }
 
 fn main() -> Result<(), std::io::Error> {
