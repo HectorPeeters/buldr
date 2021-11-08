@@ -145,11 +145,6 @@ impl Project {
                 // Add all the object files that have to be linked
                 link_command.args(object_files);
 
-                // Add any other user-specified linker options
-                if let Some(args) = &config.linker_opts {
-                    link_command.args(args);
-                }
-
                 // Set up the output file main search directory
                 link_command
                     .arg("-o")
@@ -160,6 +155,11 @@ impl Project {
                 // Add all the other project dependencies it has to link to
                 if let Some(deps) = &self.depends {
                     link_command.args(deps.iter().map(|x| format!("-l{}", x)).collect::<Vec<_>>());
+                }
+
+                // Add any other user-specified linker options
+                if let Some(args) = &config.linker_opts {
+                    link_command.args(args);
                 }
 
                 link_command
