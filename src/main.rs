@@ -66,9 +66,9 @@ fn build_project_with_dependencies(
     project.build(needs_rebuild, cache, config)
 }
 
-fn load_config() -> Result<BuildConfig, std::io::Error> {
+fn load_config(build_file: &str) -> Result<BuildConfig, std::io::Error> {
     Ok(toml::from_str::<BuildConfig>(&std::fs::read_to_string(
-        "build.toml",
+        build_file,
     )?)?)
 }
 
@@ -87,14 +87,14 @@ fn create(build_file_path: &Path) -> Result<(), std::io::Error> {
     std::fs::write(&build_file_path, template)
 }
 
-fn clean(build_file_path: &Path) -> Result<(), std::io::Error> {
+fn clean(build_file: &str) -> Result<(), std::io::Error> {
     // If the build file exists, clear the cache
-    if build_file_path.exists() {
-        Cache::new()?.clean();
+    if PathBuf::from(build_file).exists() {
+        Cache::new(build_file)?.clean();
     }
 
     // Load the config
-    let config = load_config()?;
+    let config = load_config(build_file)?;
 
     // Remove the bin dir if it exists
     if PathBuf::from(&config.config.bin).exists() {
@@ -113,9 +113,9 @@ fn clean(build_file_path: &Path) -> Result<(), std::io::Error> {
     Ok(())
 }
 
-fn compile_commands() -> Result<(), std::io::Error> {
+fn compile_commands(build_file: &str) -> Result<(), std::io::Error> {
     // Load the config
-    let config = load_config()?;
+    let config = load_config(build_file)?;
 
     // List to store all compile commands of all projects
     let mut all_compile_commands = vec![];
@@ -134,21 +134,21 @@ fn compile_commands() -> Result<(), std::io::Error> {
     )
 }
 
-fn build(build_file_path: &Path, matches: &ArgMatches) -> Result<(), std::io::Error> {
+fn build(build_file: &str, matches: &ArgMatches) -> Result<(), std::io::Error> {
     // Make sure the build file exists
-    if !build_file_path.exists() {
+    if !PathBuf::from(build_file).exists() {
         eprintln!("No build.toml file found!");
         return Ok(());
     }
 
     // Load the config
-    let config = load_config()?;
+    let config = load_config(build_file)?;
 
     // Create the bin and obj directories
     create_directories(&config)?;
 
     // Load or create the cache
-    let mut cache = Cache::new()?;
+    let mut cache = Cache::new(build_file)?;
 
     // Make sure there are some projects defined
     if config.projects.is_empty() {
@@ -184,6 +184,12 @@ fn main() -> Result<(), std::io::Error> {
         .version("0.0.1")
         .author("Hector Peeters <hector.peeters@gmail.com>")
         .arg(Arg::with_name("project").index(1))
+        .arg(
+            Arg::with_name("build-file")
+                .short("b")
+                .long("build-file")
+                .takes_value(true),
+        )
         .subcommand(SubCommand::with_name("create").about("generate a template build.toml file"))
         .subcommand(SubCommand::with_name("clean").about("Clean all build files"))
         .subcommand(
@@ -192,12 +198,17 @@ fn main() -> Result<(), std::io::Error> {
         .get_matches();
 
     // Get the path to the build.toml file
-    let build_file_path = PathBuf::from("build.toml");
+    let build_file = matches.value_of("build-file").unwrap_or("build.toml");
+    let build_file_path = PathBuf::from(build_file);
+
+    if matches.is_present("build-file") {
+        println!("Using custom config: {}", build_file);
+    }
 
     match matches.subcommand_name() {
         Some("create") => create(&build_file_path),
-        Some("clean") => clean(&build_file_path),
-        Some("compile_commands") => compile_commands(),
-        Some(_) | None => build(&build_file_path, &matches),
+        Some("clean") => clean(&build_file),
+        Some("compile_commands") => compile_commands(build_file),
+        Some(_) | None => build(&build_file, &matches),
     }
 }

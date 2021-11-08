@@ -17,12 +17,12 @@ pub struct Cache {
 }
 
 impl Cache {
-    pub fn new() -> Result<Self, std::io::Error> {
+    pub fn new(build_file: &str) -> Result<Self, std::io::Error> {
         // Create a new hasher
         let mut hasher = DefaultHasher::new();
         // Hash the full path of the build.toml file. This will be used as a unique identifier for
         // the cache file.
-        std::fs::canonicalize("build.toml")
+        std::fs::canonicalize(build_file)
             .unwrap()
             .hash(&mut hasher);
 
