@@ -1,7 +1,7 @@
 use serde_derive::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -22,12 +22,10 @@ impl Cache {
         let mut hasher = DefaultHasher::new();
         // Hash the full path of the build.toml file. This will be used as a unique identifier for
         // the cache file.
-        std::fs::canonicalize(build_file)
-            .unwrap()
-            .hash(&mut hasher);
+        std::fs::canonicalize(build_file).unwrap().hash(&mut hasher);
 
         // Create the cache file the temp directory
-        let cache_file = std::env::temp_dir().join(format!("buldr_{}", hasher.finish()));
+        let cache_file = PathBuf::from(".buldr_cache");
 
         let data = if cache_file.exists() {
             // If the cache file exist load the data from there
