@@ -7,6 +7,7 @@ use clap::{App, Arg, SubCommand};
 use std::fs::File;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command;
 
 mod cache;
 mod compile_command;
@@ -134,11 +135,11 @@ fn compile_commands(build_file: &str) -> Result<(), std::io::Error> {
     )
 }
 
-fn build(build_file: &str, matches: &ArgMatches) -> Result<(), std::io::Error> {
+fn build(build_file: &str, matches: &ArgMatches) -> Result<Option<PathBuf>, std::io::Error> {
     // Make sure the build file exists
     if !PathBuf::from(build_file).exists() {
         eprintln!("No build.toml file found!");
-        return Ok(());
+        return Ok(None);
     }
 
     // Load the config
@@ -153,7 +154,7 @@ fn build(build_file: &str, matches: &ArgMatches) -> Result<(), std::io::Error> {
     // Make sure there are some projects defined
     if config.projects.is_empty() {
         eprintln!("No projects defined");
-        return Ok(());
+        return Ok(None);
     }
 
     // Find which project to compile
@@ -162,20 +163,33 @@ fn build(build_file: &str, matches: &ArgMatches) -> Result<(), std::io::Error> {
             Some(project) => project,
             None => {
                 eprintln!("No project found with name '{}'", name);
-                return Ok(());
+                return Ok(None);
             }
         },
         None => match config.projects.iter().find(|x| x.default == Some(true)) {
             Some(project) => project,
             None => {
                 eprintln!("No default project");
-                return Ok(());
+                return Ok(None);
             }
         },
     };
 
     // Build that project and its dependencies
     build_project_with_dependencies(project, &config.projects, &config.config, &mut cache)?;
+    let output = Path::new(&config.config.bin).join(&project.name);
+
+    Ok(Some(output))
+}
+
+fn run(build_file: &str, matches: &ArgMatches) -> Result<(), std::io::Error> {
+    match build(build_file, matches)? {
+        Some(output) => {
+            Command::new(output).output().unwrap();
+        }
+        _ => {}
+    }
+
     Ok(())
 }
 
@@ -195,6 +209,9 @@ fn main() -> Result<(), std::io::Error> {
         .subcommand(
             SubCommand::with_name("compile_commands").about("Generate compile_commands.json"),
         )
+        .subcommand(
+            SubCommand::with_name("run").about("Build and run the default compiled executable"),
+        )
         .get_matches();
 
     // Get the path to the build.toml file
@@ -209,6 +226,7 @@ fn main() -> Result<(), std::io::Error> {
         Some("create") => create(&build_file_path),
         Some("clean") => clean(&build_file),
         Some("compile_commands") => compile_commands(build_file),
-        Some(_) | None => build(&build_file, &matches),
+        Some("run") => run(&build_file, &matches),
+        Some(_) | None => build(&build_file, &matches).map(|_| ()),
     }
 }
