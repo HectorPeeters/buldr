@@ -8,6 +8,7 @@ use std::fs::File;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use std::process::Stdio;
 
 mod cache;
 mod compile_command;
@@ -185,7 +186,11 @@ fn build(build_file: &str, matches: &ArgMatches) -> Result<Option<PathBuf>, std:
 fn run(build_file: &str, matches: &ArgMatches) -> Result<(), std::io::Error> {
     match build(build_file, matches)? {
         Some(output) => {
-            Command::new(output).output().unwrap();
+            Command::new(output)
+                .stdout(Stdio::inherit())
+                .stderr(Stdio::inherit())
+                .output()
+                .unwrap();
         }
         _ => {}
     }
