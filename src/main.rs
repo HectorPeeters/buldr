@@ -108,10 +108,6 @@ fn clean(build_file: &str) -> Result<(), std::io::Error> {
         std::fs::remove_dir_all(config.config.obj)?;
     }
 
-    if PathBuf::from(COMPILE_COMMANDS_PATH).exists() {
-        std::fs::remove_file(COMPILE_COMMANDS_PATH)?;
-    }
-
     Ok(())
 }
 
