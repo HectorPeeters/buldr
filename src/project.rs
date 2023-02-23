@@ -129,7 +129,7 @@ impl Project {
         let output_dir = Path::new(&config.bin);
 
         // Create the output directory if it doesn't exist
-        std::fs::create_dir_all(&output_dir)?;
+        std::fs::create_dir_all(output_dir)?;
 
         // Get a list of all the object files
         let object_files: Vec<_> = source_files
@@ -255,7 +255,7 @@ impl Project {
 
             // Get the output file and create it's parent directory if it doesn't exist
             let output_file = self.get_output_file(compile_command.source_file.path(), config);
-            std::fs::create_dir_all(&output_file.parent().unwrap())?;
+            std::fs::create_dir_all(output_file.parent().unwrap())?;
 
             match compile_command.execute() {
                 Ok(_) => {

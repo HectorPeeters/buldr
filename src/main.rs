@@ -82,11 +82,11 @@ fn create(build_file_path: &Path) -> Result<(), std::io::Error> {
     }
 
     // Create a new build.toml file
-    File::create(&build_file_path)?;
+    File::create(build_file_path)?;
 
     // Write the template file to build.toml
     let template = include_str!("template.toml");
-    std::fs::write(&build_file_path, template)
+    std::fs::write(build_file_path, template)
 }
 
 fn clean(build_file: &str) -> Result<(), std::io::Error> {
@@ -180,15 +180,12 @@ fn build(build_file: &str, matches: &ArgMatches) -> Result<Option<PathBuf>, std:
 }
 
 fn run(build_file: &str, matches: &ArgMatches) -> Result<(), std::io::Error> {
-    match build(build_file, matches)? {
-        Some(output) => {
-            Command::new(output)
-                .stdout(Stdio::inherit())
-                .stderr(Stdio::inherit())
-                .output()
-                .unwrap();
-        }
-        _ => {}
+    if let Some(output) = build(build_file, matches)? {
+        Command::new(output)
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .output()
+            .unwrap();
     }
 
     Ok(())
@@ -225,9 +222,9 @@ fn main() -> Result<(), std::io::Error> {
 
     match matches.subcommand_name() {
         Some("create") => create(&build_file_path),
-        Some("clean") => clean(&build_file),
+        Some("clean") => clean(build_file),
         Some("compile_commands") => compile_commands(build_file),
-        Some("run") => run(&build_file, &matches),
-        Some(_) | None => build(&build_file, &matches).map(|_| ()),
+        Some("run") => run(build_file, &matches),
+        Some(_) | None => build(build_file, &matches).map(|_| ()),
     }
 }
