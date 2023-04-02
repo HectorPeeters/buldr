@@ -2,6 +2,7 @@ use crate::compile_command::CompileCommand;
 use crate::config::Config;
 use crate::Cache;
 use indicatif::{ProgressBar, ProgressStyle};
+use rayon::prelude::*;
 use serde_derive::Deserialize;
 use std::ffi::OsStr;
 use std::path::Path;
@@ -202,8 +203,8 @@ impl Project {
     pub fn build(
         &self,
         force_link: bool,
-        cache: &mut Cache,
         config: &Config,
+        cache: &Cache,
     ) -> Result<bool, std::io::Error> {
         // Gathering source files
         let source_files = self.get_source_files();
@@ -242,7 +243,7 @@ impl Project {
         );
 
         // Execute all compile commands
-        for mut compile_command in compile_commands {
+        compile_commands.par_iter().for_each(|compile_command| {
             // Set the current file we are compiling
             progress_bar.set_message(
                 compile_command
@@ -255,13 +256,13 @@ impl Project {
 
             // Get the output file and create it's parent directory if it doesn't exist
             let output_file = self.get_output_file(compile_command.source_file.path(), config);
-            std::fs::create_dir_all(output_file.parent().unwrap())?;
+            std::fs::create_dir_all(output_file.parent().unwrap()).unwrap();
 
             match compile_command.execute() {
                 Ok(_) => {
                     // The command executed succesfully so we can update the build cache
                     cache.update(&output_file);
-                    cache.write()?;
+                    cache.write().unwrap();
                     // Increment the progress bar
                     progress_bar.inc(1);
                 }
@@ -274,7 +275,7 @@ impl Project {
                     std::process::exit(-1);
                 }
             }
-        }
+        });
         // Compilation succesful
         progress_bar.finish_with_message("done");
 

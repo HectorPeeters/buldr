@@ -3,6 +3,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::time::SystemTime;
 
 #[derive(Serialize, Deserialize)]
@@ -13,7 +14,7 @@ struct CacheData {
 
 pub struct Cache {
     path: PathBuf,
-    data: CacheData,
+    data: Mutex<CacheData>,
 }
 
 impl Cache {
@@ -39,11 +40,11 @@ impl Cache {
 
         Ok(Cache {
             path: cache_file,
-            data,
+            data: Mutex::new(data),
         })
     }
 
-    pub fn has_changed(&mut self, path: &Path, time: &SystemTime) -> bool {
+    pub fn has_changed(&self, path: &Path, time: &SystemTime) -> bool {
         // If the file doesn't exist we have to recompile anyway
         if !path.exists() {
             return true;
@@ -54,7 +55,8 @@ impl Cache {
             .unwrap()
             .as_secs();
 
-        match self.data.files.get(path.to_str().unwrap()) {
+        // TODO: don't unwrap
+        match self.data.lock().unwrap().files.get(path.to_str().unwrap()) {
             // It's stored in the cache so lets see if its up to date
             Some(last_write_time) => *last_write_time < seconds,
             // It's not even in the cache so lets recompile
@@ -62,7 +64,7 @@ impl Cache {
         }
     }
 
-    pub fn update(&mut self, path: &Path) {
+    pub fn update(&self, path: &Path) {
         // Get the current time
         let time = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
@@ -70,12 +72,15 @@ impl Cache {
             .as_secs();
 
         // Store this in the cache
+        // TODO: don't unwrap
         self.data
+            .lock()
+            .unwrap()
             .files
             .insert(String::from(path.to_str().unwrap()), time);
     }
 
-    pub fn write(&mut self) -> Result<(), std::io::Error> {
+    pub fn write(&self) -> Result<(), std::io::Error> {
         // Convert the cache date to a string
         let string_data = toml::to_string(&self.data).unwrap();
 
@@ -83,7 +88,7 @@ impl Cache {
         std::fs::write(&self.path, string_data)
     }
 
-    pub fn clean(&mut self) {
+    pub fn clean(&self) {
         // If the file exists, remove it!
         if self.path.exists() {
             std::fs::remove_file(&self.path).unwrap();

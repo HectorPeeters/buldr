@@ -4,6 +4,7 @@ use crate::project::Project;
 use cache::Cache;
 use clap::ArgMatches;
 use clap::{App, Arg, SubCommand};
+use rayon::prelude::*;
 use std::fs::File;
 use std::path::Path;
 use std::path::PathBuf;
@@ -52,20 +53,18 @@ fn build_project_with_dependencies(
     project: &Project,
     all_projects: &[Project],
     config: &Config,
-    cache: &mut Cache,
+    cache: &Cache,
 ) -> Result<bool, std::io::Error> {
     // Get all the dependencies
     let dependencies = get_dependencies(all_projects, project);
 
-    let mut needs_rebuild = false;
-
     // Compile them in the correct order
-    for dependency in dependencies {
-        needs_rebuild |= build_project_with_dependencies(dependency, all_projects, config, cache)?;
-    }
+    let needs_rebuild = dependencies.par_iter().any(|dependency| {
+        build_project_with_dependencies(dependency, all_projects, config, cache).unwrap()
+    });
 
     // Finally build the resulting project
-    project.build(needs_rebuild, cache, config)
+    project.build(needs_rebuild, config, cache)
 }
 
 fn load_config(build_file: &str) -> Result<BuildConfig, std::io::Error> {
@@ -146,7 +145,7 @@ fn build(build_file: &str, matches: &ArgMatches) -> Result<Option<PathBuf>, std:
     create_directories(&config)?;
 
     // Load or create the cache
-    let mut cache = Cache::new(build_file)?;
+    let cache = Cache::new(build_file)?;
 
     // Make sure there are some projects defined
     if config.projects.is_empty() {
@@ -173,7 +172,7 @@ fn build(build_file: &str, matches: &ArgMatches) -> Result<Option<PathBuf>, std:
     };
 
     // Build that project and its dependencies
-    build_project_with_dependencies(project, &config.projects, &config.config, &mut cache)?;
+    build_project_with_dependencies(project, &config.projects, &config.config, &cache)?;
     let output = Path::new(&config.config.bin).join(&project.name);
 
     Ok(Some(output))

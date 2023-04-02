@@ -34,7 +34,7 @@ impl CompileCommand {
         }
     }
 
-    pub fn execute(&mut self) -> Result<(), String> {
+    pub fn execute(&self) -> Result<(), String> {
         let mut command = Command::new(&self.command);
         command.args(&self.arguments);
 
